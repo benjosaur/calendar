@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/* Base layout: full-height app on a neutral background. */
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 antialiased;
+}
+
+#__next,
+:root {
+  height: 100%;
+}
