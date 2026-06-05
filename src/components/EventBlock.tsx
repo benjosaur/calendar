@@ -23,21 +23,20 @@ function fmtTime(utcMs: number, tz: string): string {
 
 /**
  * A single timed occurrence rendered inside a day column. Positioned absolutely
- * from its local start/end minutes. Draggable (via dnd-kit) for moving; the
- * top/bottom edges expose resize handles that call resizeEvent (or
- * editOccurrence for a recurring instance) directly with an optimistic update.
- * Clicking the body opens the editor.
+ * from its local start/end minutes. Draggable (via dnd-kit) to move it in time or
+ * to another day; the top/bottom edges expose resize handles that call
+ * resizeEvent (or editOccurrence for a recurring instance) directly with an
+ * optimistic update. Dragging is the only way to edit a block — title, location,
+ * and other fields are changed through the chat.
  */
 export function EventBlock({
   occ,
   tz,
   locationsById,
-  onEdit,
 }: {
   occ: Occurrence;
   tz: string;
   locationsById: Record<string, LocationLite>;
-  onEdit: (occ: Occurrence) => void;
 }) {
   const resizeEvent = useMutation(api.events.resizeEvent);
   const editOccurrence = useMutation(api.events.editOccurrence);
@@ -127,10 +126,6 @@ export function EventBlock({
         cursor: "grab",
         touchAction: "none",
       }}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (!isDragging) onEdit(occ);
-      }}
       {...attributes}
       {...listeners}
     >
@@ -138,7 +133,6 @@ export function EventBlock({
       <div
         className="absolute inset-x-0 top-0 z-30 h-1.5 cursor-ns-resize"
         onPointerDown={(e) => beginResize("top", e)}
-        onClick={(e) => e.stopPropagation()}
       />
       <div className="px-1.5 py-0.5">
         <div className="truncate font-medium text-neutral-800">{occ.title}</div>
@@ -150,7 +144,6 @@ export function EventBlock({
       <div
         className="absolute inset-x-0 bottom-0 z-30 h-1.5 cursor-ns-resize"
         onPointerDown={(e) => beginResize("bottom", e)}
-        onClick={(e) => e.stopPropagation()}
       />
     </div>
   );

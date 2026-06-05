@@ -35,8 +35,6 @@ export function WeekGrid({
   locationsById,
   homeLocationId,
   tz,
-  onCreateAt,
-  onEdit,
 }: {
   dayCivils: number[];
   days: DateTime[];
@@ -44,8 +42,6 @@ export function WeekGrid({
   locationsById: Record<string, LocationLite>;
   homeLocationId?: Id<"locations">;
   tz: string;
-  onCreateAt: (civil: number, startMin: number) => void;
-  onEdit: (occ: Occurrence) => void;
 }) {
   const moveEvent = useMutation(api.events.moveEvent);
   const editOccurrence = useMutation(api.events.editOccurrence);
@@ -133,7 +129,6 @@ export function WeekGrid({
               <AllDayRow
                 occurrences={b.allDay}
                 locationsById={locationsById}
-                onEdit={onEdit}
               />
             </div>
           ))}
@@ -160,8 +155,6 @@ export function WeekGrid({
                   bands={bands}
                   locationsById={locationsById}
                   tz={tz}
-                  onCreateAt={onCreateAt}
-                  onEdit={onEdit}
                 />
               </div>
             );
