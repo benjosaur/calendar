@@ -10,8 +10,8 @@ const HOURS = Array.from(
 
 /**
  * Shared hour gridlines for a day column. Lives at z-10, above the presence
- * background and below the event blocks. Pointer-events are disabled so the
- * click-to-create layer underneath stays reachable. Positions are percentages so
+ * background and below the event blocks. Pointer-events are disabled so they
+ * never interfere with dragging an event block. Positions are percentages so
  * the lines stay aligned no matter the (responsive) column height.
  */
 export function HourLines() {

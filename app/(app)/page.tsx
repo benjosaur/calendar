@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@convex/_generated/api";
-import type { LocationLite, Occurrence } from "@/lib/types";
+import type { LocationLite } from "@/lib/types";
 import { useVisibleWeek } from "@/hooks/useVisibleWeek";
 import { WeekGrid } from "@/components/WeekGrid";
 import { ChatOverlay } from "@/components/ChatOverlay";
 import { LocationLegend } from "@/components/LocationLegend";
-import { EventDialog, type EventDialogState } from "@/components/EventDialog";
 
 export default function CalendarPage() {
   const { signOut } = useAuthActions();
@@ -41,14 +40,6 @@ export default function CalendarPage() {
     );
     return locations.filter((l) => l.isHome || used.has(l._id));
   }, [locations, occurrences]);
-
-  // EventDialog: closed | create at a slot | edit an existing occurrence.
-  const [dialog, setDialog] = useState<EventDialogState>({ mode: "closed" });
-
-  const onCreateAt = (civil: number, startMinutes?: number) =>
-    setDialog({ mode: "create", civil, startMinutes });
-  const onEdit = (occ: Occurrence) => setDialog({ mode: "edit", occurrence: occ });
-  const closeDialog = () => setDialog({ mode: "closed" });
 
   return (
     <div className="flex h-full flex-col bg-neutral-50">
@@ -109,8 +100,6 @@ export default function CalendarPage() {
               locationsById={locationsById}
               homeLocationId={me?.homeLocationId}
               tz={tz}
-              onCreateAt={onCreateAt}
-              onEdit={onEdit}
             />
           </div>
 
@@ -123,15 +112,6 @@ export default function CalendarPage() {
         {/* Centred, translucent assistant overlay (expands on focus / while busy). */}
         <ChatOverlay tz={tz} onNavigate={week.goToMs} />
       </div>
-
-      {/* Create / edit dialog */}
-      <EventDialog
-        state={dialog}
-        tz={tz}
-        locations={locations}
-        onClose={closeDialog}
-        onNavigate={week.goToMs}
-      />
     </div>
   );
 }
