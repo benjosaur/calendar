@@ -143,7 +143,46 @@ const TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: {
         name: { type: "string" },
-        color: { type: "string", description: "hex colour" },
+        color: { type: "string", description: "hex colour or a common colour name" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "create_place",
+    description:
+      "Create a place in the user's locations directory. color may be a hex value (#rrggbb) or a common colour name (e.g. 'green'). If the place already exists this is a no-op.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Place/area name, e.g. 'Cambridge'" },
+        color: { type: "string", description: "hex colour or a common colour name" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "update_place",
+    description:
+      "Rename and/or recolour an existing place, found by its current name. color may be a hex value or a common colour name.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Current place name" },
+        newName: { type: "string", description: "New name (optional)" },
+        color: { type: "string", description: "hex colour or a common colour name (optional)" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "delete_place",
+    description:
+      "Delete a place by name. The home place cannot be deleted; events at the place keep their times but lose the place tag.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
       },
       required: ["name"],
     },
@@ -160,6 +199,7 @@ function buildSystemPrompt(
     isHome: boolean;
     aliases?: string[];
   }[],
+  context?: string,
 ): string {
   const now = DateTime.fromMillis(nowMs, { zone: tz });
   const human = now.toFormat("cccc, d LLLL yyyy 'at' HH:mm");
@@ -175,6 +215,10 @@ function buildSystemPrompt(
         .join("\n")
     : "- (none yet)";
 
+  const contextBlock = context && context.trim()
+    ? ["", "Additional context from the user:", context.trim()]
+    : [];
+
   return [
     "You are a calendar assistant. You manage the user's calendar via the provided tools.",
     "",
@@ -183,12 +227,14 @@ function buildSystemPrompt(
     "",
     "The user's known places (their locations directory):",
     locLines,
+    ...contextBlock,
     "",
     "Rules:",
     "- Resolve relative dates ('tomorrow', 'next Tuesday', 'in 2 weeks') against the current date and time above.",
     "- Always emit timezone-qualified ISO 8601 for timed values (e.g. 2026-06-05T09:00:00+01:00) and YYYY-MM-DD for all-day dates and recurrence boundaries.",
     "- LOCATIONS ARE PLACE-BASED: a location must be a real place or area (e.g. 'Whitechapel', 'Westminster', 'Shoreditch'), never a vague venue like 'the cafe' or 'the office'.",
     "- Resolve aliases and references using the directory above (e.g. 'home' -> the [HOME] place, 'work' -> its place). Pass the PLACE NAME to the tools.",
+    "- You can manage the user's places directly: create_place, update_place (rename/recolour), and delete_place. A place's colour may be a hex value (#rrggbb) or a common colour name like 'green'. When the user asks to add a place or change its colour, do it with these tools.",
     "- If the user names a venue/place you cannot map to a specific area from the directory (e.g. 'the cafe'), DO NOT create it or guess. Instead reply WITHOUT calling tools, asking a brief follow-up for the area (e.g. 'Which area is the cafe in?'). Use the conversation so far to fill in answers to your earlier questions.",
     "- Before a destructive action (move or delete) where the target event is ambiguous, first call query_events to find the correct event id. Never invent event ids.",
     "- After completing the user's request, reply with a short natural-language confirmation.",
@@ -349,6 +395,30 @@ async function dispatchTool(
         });
         return { result: `Set home location to ${input.name}.` };
       }
+      case "create_place": {
+        await ctx.runMutation(internal.locations.resolveOrCreate, {
+          userId,
+          name: input.name,
+          color: input.color,
+        });
+        return { result: `Created place ${input.name}.` };
+      }
+      case "update_place": {
+        await ctx.runMutation(internal.locations.updateByNameInternal, {
+          userId,
+          name: input.name,
+          newName: input.newName,
+          color: input.color,
+        });
+        return { result: `Updated place ${input.name}.` };
+      }
+      case "delete_place": {
+        await ctx.runMutation(internal.locations.removeByNameInternal, {
+          userId,
+          name: input.name,
+        });
+        return { result: `Deleted place ${input.name}.` };
+      }
       default:
         return { result: `Unknown tool: ${name}.` };
     }
@@ -385,7 +455,13 @@ async function runCommandHandler(
     const locations = await ctx.runQuery(internal.locations.listForUser, {
       userId,
     });
-    const system = buildSystemPrompt(args.nowMs, args.tz, locations);
+    const user = await ctx.runQuery(internal.users.getById, { userId });
+    const system = buildSystemPrompt(
+      args.nowMs,
+      args.tz,
+      locations,
+      user?.context,
+    );
 
     // Recent completed turns become prior conversation so the model can ask a
     // follow-up question and use the user's next message as the answer.
