@@ -148,6 +148,22 @@ const TOOLS: Anthropic.Tool[] = [
       required: ["name"],
     },
   },
+  {
+    name: "request_app_change",
+    description:
+      "Request a change to the calendar APP ITSELF — its features, layout, styling, or behaviour (e.g. 'add a dark mode toggle', 'show ISO week numbers', 'make all-day events taller'). This spawns a coding agent that edits the source and ships it to production for EVERYONE. It is NOT for creating, editing, or querying the user's own events, locations, or schedule — use the other tools for that. Only call this when the user unambiguously asks to change how the app works or looks.",
+    input_schema: {
+      type: "object",
+      properties: {
+        prompt: {
+          type: "string",
+          description:
+            "A clear, self-contained description of the desired app change, phrased for a developer.",
+        },
+      },
+      required: ["prompt"],
+    },
+  },
 ];
 
 /** Build the grounding system prompt. */
@@ -191,6 +207,7 @@ function buildSystemPrompt(
     "- Resolve aliases and references using the directory above (e.g. 'home' -> the [HOME] place, 'work' -> its place). Pass the PLACE NAME to the tools.",
     "- If the user names a venue/place you cannot map to a specific area from the directory (e.g. 'the cafe'), DO NOT create it or guess. Instead reply WITHOUT calling tools, asking a brief follow-up for the area (e.g. 'Which area is the cafe in?'). Use the conversation so far to fill in answers to your earlier questions.",
     "- Before a destructive action (move or delete) where the target event is ambiguous, first call query_events to find the correct event id. Never invent event ids.",
+    "- APP CHANGES vs CALENDAR ACTIONS: the event tools manage THIS user's data (reversible, private). request_app_change modifies the app's SOURCE CODE and ships it to ALL users (high-impact). Use request_app_change ONLY when the user explicitly asks to change how the app works or looks (a feature, layout, or styling change) — never for their own schedule, and never to merely answer a question. If a request could be either, ask a one-line clarifying question instead of guessing. Before calling request_app_change, briefly state in your reply what change you're about to ship.",
     "- After completing the user's request, reply with a short natural-language confirmation.",
   ].join("\n");
 }
@@ -348,6 +365,15 @@ async function dispatchTool(
           locationId,
         });
         return { result: `Set home location to ${input.name}.` };
+      }
+      case "request_app_change": {
+        const jobId = await ctx.runMutation(internal.codegen.submitInternal, {
+          userId,
+          prompt: input.prompt,
+        });
+        return {
+          result: `Queued app change ${jobId}. A coding agent will edit the app and deploy it shortly; the change appears once it ships.`,
+        };
       }
       default:
         return { result: `Unknown tool: ${name}.` };

@@ -6,8 +6,10 @@ import {
   internalQuery,
   mutation,
   query,
+  MutationCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 
 // Fields the GitHub Actions runner is allowed to patch onto a job via the
 // /codegen/callback HTTP endpoint. Mirrors the optional columns in the schema.
@@ -26,6 +28,30 @@ const callbackPatch = {
   error: v.optional(v.string()),
 };
 
+/**
+ * Insert a job row and schedule its dispatch to GitHub. Shared by the public
+ * `submit` mutation and the agent-facing `submitInternal`. The dispatch runs
+ * outside this transaction: actions can't run in a mutation, and we never want
+ * the GitHub HTTP call to block the write.
+ */
+async function enqueue(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  prompt: string,
+): Promise<Id<"codegenJobs">> {
+  const trimmed = prompt.trim();
+  if (trimmed.length === 0) throw new Error("Prompt is empty");
+  if (trimmed.length > 4000) throw new Error("Prompt is too long");
+
+  const jobId = await ctx.db.insert("codegenJobs", {
+    userId,
+    prompt: trimmed,
+    status: "queued",
+  });
+  await ctx.scheduler.runAfter(0, internal.codegen.dispatch, { jobId });
+  return jobId;
+}
+
 // ---------- Public API (called from the website) ----------
 
 /** Submit a natural-language change request. Returns the new job id. */
@@ -34,21 +60,15 @@ export const submit = mutation({
   handler: async (ctx, { prompt }) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Not authenticated");
+    return await enqueue(ctx, userId, prompt);
+  },
+});
 
-    const trimmed = prompt.trim();
-    if (trimmed.length === 0) throw new Error("Prompt is empty");
-    if (trimmed.length > 4000) throw new Error("Prompt is too long");
-
-    const jobId = await ctx.db.insert("codegenJobs", {
-      userId,
-      prompt: trimmed,
-      status: "queued",
-    });
-
-    // Hand off to GitHub outside the transaction: actions can't run in a
-    // mutation, and we never want the dispatch HTTP call to block the write.
-    await ctx.scheduler.runAfter(0, internal.codegen.dispatch, { jobId });
-    return jobId;
+/** Internal: enqueue on behalf of a user (the calendar agent's tool calls this). */
+export const submitInternal = internalMutation({
+  args: { userId: v.id("users"), prompt: v.string() },
+  handler: async (ctx, { userId, prompt }) => {
+    return await enqueue(ctx, userId, prompt);
   },
 });
 
