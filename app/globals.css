@@ -14,3 +14,37 @@ body {
 :root {
   height: 100%;
 }
+
+/* Markdown rendered inside chat bubbles. Tailwind's reset strips default
+   element styling, so restore the few things the agent actually emits:
+   paragraph spacing, bold/italic, links, lists, and inline code. */
+.prose-chat p {
+  margin: 0;
+}
+.prose-chat strong {
+  font-weight: 600;
+}
+.prose-chat em {
+  font-style: italic;
+}
+.prose-chat a {
+  color: var(--color-indigo-600);
+  text-decoration: underline;
+}
+.prose-chat ul,
+.prose-chat ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.prose-chat ul {
+  list-style: disc;
+}
+.prose-chat ol {
+  list-style: decimal;
+}
+.prose-chat code {
+  border-radius: 0.25rem;
+  background: rgb(0 0 0 / 0.06);
+  padding: 0.05rem 0.3rem;
+  font-size: 0.85em;
+}
