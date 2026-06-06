@@ -112,4 +112,33 @@ export default defineSchema({
     ),
     error: v.optional(v.string()),
   }).index("by_user", ["userId"]),
+
+  // Self-modifying codegen jobs: a website message → a headless Claude Code run
+  // in GitHub Actions that edits this repo and opens a PR. The runner reports
+  // progress back via the /codegen/callback HTTP endpoint; reactivity streams
+  // the status straight to the submitter's open tab.
+  codegenJobs: defineTable({
+    userId: v.id("users"),
+    prompt: v.string(),
+    status: v.union(
+      v.literal("queued"), // row created, not yet handed to GitHub
+      v.literal("dispatched"), // repository_dispatch fired, workflow may be cold-starting
+      v.literal("running"), // workflow checked out the repo, Claude is working
+      v.literal("pushed"), // Claude's change committed straight to main (deploy triggered)
+      v.literal("no_changes"), // Claude ran but produced no diff
+      v.literal("error"),
+    ),
+    summary: v.optional(v.string()), // Claude's description of what it did
+    runUrl: v.optional(v.string()), // link to the GitHub Actions run
+    commitSha: v.optional(v.string()), // sha pushed to main
+    error: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
+
+  // Append-only marker of what git SHA is live in production. The post-merge
+  // workflow writes a row; the frontend compares the latest SHA to the SHA it
+  // was built with to know when an open tab is running stale code.
+  appDeployments: defineTable({
+    sha: v.string(),
+    deployedAt: v.number(), // epoch ms, supplied by the workflow
+  }),
 });

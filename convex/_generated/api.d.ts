@@ -10,6 +10,7 @@
 
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
+import type * as codegen from "../codegen.js";
 import type * as commands from "../commands.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
@@ -28,6 +29,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   auth: typeof auth;
+  codegen: typeof codegen;
   commands: typeof commands;
   events: typeof events;
   http: typeof http;
