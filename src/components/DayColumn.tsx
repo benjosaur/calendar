@@ -1,8 +1,9 @@
 "use client";
 
+import { civilForInstant } from "@/lib/time";
 import type { LocationLite, Occurrence, PresenceBand } from "@/lib/types";
 import { EventBlock } from "./EventBlock";
-import { HourLines } from "./TimeGrid";
+import { HourLines, NowIndicator } from "./TimeGrid";
 import { PresenceBackground } from "./PresenceBackground";
 
 /**
@@ -19,13 +20,17 @@ export function DayColumn({
   bands,
   locationsById,
   tz,
+  nowMs,
 }: {
   civil: number;
   timed: Occurrence[];
   bands: PresenceBand[];
   locationsById: Record<string, LocationLite>;
   tz: string;
+  /** Live current instant; the "now" line shows only when this lands on `civil`. */
+  nowMs: number;
 }) {
+  const isToday = civilForInstant(nowMs, tz) === civil;
   return (
     <div data-time-grid data-civil={civil} className="relative h-full border-l border-neutral-200">
       <PresenceBackground bands={bands} tz={tz} />
@@ -40,6 +45,8 @@ export function DayColumn({
           locationsById={locationsById}
         />
       ))}
+
+      {isToday && <NowIndicator nowMs={nowMs} tz={tz} />}
     </div>
   );
 }

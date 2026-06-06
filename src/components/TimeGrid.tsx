@@ -1,6 +1,11 @@
 "use client";
 
-import { DAY_START_MIN, DAY_END_MIN, minutesToPct } from "@/lib/time";
+import {
+  DAY_START_MIN,
+  DAY_END_MIN,
+  minutesToPct,
+  minutesOfDay,
+} from "@/lib/time";
 
 /** Whole hours within the visible window, e.g. 7,8,…,24. */
 const HOURS = Array.from(
@@ -24,6 +29,31 @@ export function HourLines() {
           style={{ top: `${minutesToPct(h * 60)}%` }}
         />
       ))}
+    </div>
+  );
+}
+
+/**
+ * Google-Calendar-style "now" line: a red rule with a dot on the left edge,
+ * placed at the current time within a day column. The caller renders this only
+ * for the column that is "today"; `nowMs` is the live current instant and `tz`
+ * the wall-clock zone. Returns null when the current time is above the visible
+ * window (before DAY_START_MIN) so the line never pins to the grid's top edge.
+ * Sits at z-30 (above event blocks) and ignores pointer events so it never
+ * interferes with dragging.
+ */
+export function NowIndicator({ nowMs, tz }: { nowMs: number; tz: string }) {
+  const min = minutesOfDay(nowMs, tz);
+  if (min < DAY_START_MIN || min > DAY_END_MIN) return null;
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-0 z-30 -translate-y-1/2"
+      style={{ top: `${minutesToPct(min)}%` }}
+      aria-hidden
+    >
+      <div className="relative border-t border-red-500">
+        <div className="absolute left-0 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500" />
+      </div>
     </div>
   );
 }

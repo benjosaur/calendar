@@ -13,7 +13,13 @@ import { DateTime } from "luxon";
 import { api } from "@convex/_generated/api";
 import { bucketByDay } from "@/lib/week";
 import { derivePresenceBands } from "@/lib/presence";
-import { offsetToMinutes, snapMinutes, wallToUtcMs } from "@/lib/time";
+import {
+  civilForInstant,
+  offsetToMinutes,
+  snapMinutes,
+  wallToUtcMs,
+} from "@/lib/time";
+import { useNow } from "@/hooks/useNow";
 import type { Id, LocationLite, Occurrence } from "@/lib/types";
 import { DayColumn } from "./DayColumn";
 import { AllDayRow } from "./AllDayRow";
@@ -45,6 +51,11 @@ export function WeekGrid({
 }) {
   const moveEvent = useMutation(api.events.moveEvent);
   const editOccurrence = useMutation(api.events.editOccurrence);
+
+  // Live current instant (ticks each minute) drives the "now" line and the
+  // today-highlight in the header, so both stay current without a reload.
+  const nowMs = useNow();
+  const todayCivil = civilForInstant(nowMs, tz);
 
   // A small activation distance so clicks (open editor) aren't swallowed by drag.
   const sensors = useSensors(
@@ -109,14 +120,28 @@ export function WeekGrid({
         {/* Day header band */}
         <div className="flex shrink-0 border-b border-neutral-200">
           <div className="w-12 shrink-0" />
-          {buckets.map((b, i) => (
-            <div
-              key={b.civil}
-              className="min-w-0 flex-1 border-l border-neutral-200 px-2 py-1 text-center text-[11px] font-semibold text-neutral-600"
-            >
-              {days[i].toFormat("ccc d")}
-            </div>
-          ))}
+          {buckets.map((b, i) => {
+            const isToday = b.civil === todayCivil;
+            return (
+              <div
+                key={b.civil}
+                className={`min-w-0 flex-1 border-l border-neutral-200 px-2 py-1 text-center text-[11px] font-semibold ${
+                  isToday ? "text-red-600" : "text-neutral-600"
+                }`}
+              >
+                <span className="uppercase">{days[i].toFormat("ccc")}</span>{" "}
+                <span
+                  className={
+                    isToday
+                      ? "ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-600 align-middle text-[10px] font-bold text-white"
+                      : undefined
+                  }
+                >
+                  {days[i].day}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* All-day band */}
@@ -155,6 +180,7 @@ export function WeekGrid({
                   bands={bands}
                   locationsById={locationsById}
                   tz={tz}
+                  nowMs={nowMs}
                 />
               </div>
             );
