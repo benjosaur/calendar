@@ -1,6 +1,10 @@
 import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
-import { civilForInstant } from "../../src/lib/time";
+import {
+  civilForInstant,
+  timedEventEndMs,
+  timedOverlapsWindow,
+} from "../../src/lib/time";
 import { expandMaster, MasterLike } from "../../src/lib/recurrence";
 import { Occurrence, Recurrence } from "../../src/lib/types";
 import { colorForName } from "./locations";
@@ -75,31 +79,31 @@ export async function expandForRange(
   const winEndCivil = civilForInstant(toMs, tz);
   const out: Occurrence[] = [];
 
-  // 2a) Non-recurring timed events: index range on start.
-  const timed = await ctx.db
-    .query("events")
-    .withIndex("by_user_start", (q) =>
-      q.eq("userId", userId).gte("start", fromMs).lt("start", toMs),
-    )
-    .collect();
-  for (const ev of timed) {
-    if (ev.recurrence || ev.allDay) continue; // recurring/all-day handled below
-    out.push(eventToOccurrence(ev));
-  }
-
-  // 2b) All-day non-recurring events overlapping the civil window.
+  // Single scan of the user's events; recurring masters are handled in step 3.
   const allEvents = await ctx.db
     .query("events")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
+
   for (const ev of allEvents) {
-    if (ev.recurrence) continue;
-    if (!ev.allDay) continue;
-    const s = ev.startDate as number;
-    const e = (ev.endDate ?? ev.startDate) as number;
-    // inclusive [startDate, endDate] overlapping inclusive civil window
-    if (e >= winStartCivil && s <= winEndCivil) {
-      out.push(eventToOccurrence(ev));
+    if (ev.recurrence) continue; // recurring handled below
+
+    if (ev.allDay) {
+      // 2a) All-day events: inclusive [startDate, endDate] overlapping the civil window.
+      const s = ev.startDate as number;
+      const e = (ev.endDate ?? ev.startDate) as number;
+      if (e >= winStartCivil && s <= winEndCivil) {
+        out.push(eventToOccurrence(ev));
+      }
+    } else {
+      // 2b) Timed events overlapping [fromMs, toMs). Use the presence footprint
+      // (start .. start+stayMinutes), not just [start, end], so a short event
+      // whose multi-day stay reaches into this week still renders its where-band.
+      const s = ev.start as number;
+      const e = timedEventEndMs(s, ev.end, ev.stayMinutes);
+      if (timedOverlapsWindow(s, e, fromMs, toMs)) {
+        out.push(eventToOccurrence(ev));
+      }
     }
   }
 

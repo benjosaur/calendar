@@ -7,6 +7,8 @@ import {
   eventDaySegment,
   wallToUtcMs,
   minutesOfDay,
+  timedOverlapsWindow,
+  timedEventEndMs,
   weekBounds,
   minutesToPx,
   pxToMinutes,
@@ -123,6 +125,84 @@ describe("eventDaySegment", () => {
       isStart: true,
       isEnd: true,
     });
+  });
+});
+
+describe("timedOverlapsWindow", () => {
+  const tz = "Europe/London";
+  // Visible week: Mon 8 Jun 2026 00:00 .. Mon 15 Jun 2026 00:00.
+  const from = wallToUtcMs(20260608, 0, tz);
+  const to = wallToUtcMs(20260615, 0, tz);
+
+  it("includes a stay that begins in the prior week and runs into this one", () => {
+    // Sun 7 Jun 09:00 -> Mon 8 Jun 12:00. Starts before the window but overlaps.
+    const start = wallToUtcMs(20260607, 9 * 60, tz);
+    const end = wallToUtcMs(20260608, 12 * 60, tz);
+    expect(timedOverlapsWindow(start, end, from, to)).toBe(true);
+  });
+
+  it("includes an event fully inside the window", () => {
+    const start = wallToUtcMs(20260610, 9 * 60, tz);
+    const end = wallToUtcMs(20260610, 10 * 60, tz);
+    expect(timedOverlapsWindow(start, end, from, to)).toBe(true);
+  });
+
+  it("includes an event running off the end of the window into next week", () => {
+    const start = wallToUtcMs(20260614, 9 * 60, tz); // Sun
+    const end = wallToUtcMs(20260616, 10 * 60, tz); // next Tue
+    expect(timedOverlapsWindow(start, end, from, to)).toBe(true);
+  });
+
+  it("excludes an event ending exactly at the window start", () => {
+    const start = wallToUtcMs(20260607, 9 * 60, tz);
+    expect(timedOverlapsWindow(start, from, from, to)).toBe(false);
+  });
+
+  it("excludes an event starting exactly at the window end", () => {
+    const end = wallToUtcMs(20260615, 10 * 60, tz);
+    expect(timedOverlapsWindow(to, end, from, to)).toBe(false);
+  });
+
+  it("excludes an event wholly before the window", () => {
+    const start = wallToUtcMs(20260601, 9 * 60, tz);
+    const end = wallToUtcMs(20260601, 10 * 60, tz);
+    expect(timedOverlapsWindow(start, end, from, to)).toBe(false);
+  });
+});
+
+describe("timedEventEndMs (presence footprint)", () => {
+  const tz = "Europe/London";
+
+  it("uses the event's own end when there is no stay override", () => {
+    const start = wallToUtcMs(20260607, 9 * 60, tz);
+    const end = wallToUtcMs(20260607, 10 * 60, tz);
+    expect(timedEventEndMs(start, end, undefined)).toBe(end);
+  });
+
+  it("extends past the block end when stayMinutes is longer", () => {
+    const start = wallToUtcMs(20260607, 9 * 60, tz); // Sun 09:00
+    const end = wallToUtcMs(20260607, 10 * 60, tz); // 1h block
+    // Two-day stay (2880 min) → footprint ends Tue 09:00, well past the block.
+    expect(timedEventEndMs(start, end, 2880)).toBe(start + 2880 * 60_000);
+  });
+
+  it("keeps the block end when it is longer than the stay", () => {
+    const start = wallToUtcMs(20260607, 9 * 60, tz);
+    const end = wallToUtcMs(20260609, 9 * 60, tz); // 2-day block
+    expect(timedEventEndMs(start, end, 60)).toBe(end);
+  });
+
+  it("lets a short prior-week event reach into this week via its stay", () => {
+    // Sun 7 Jun 09:00, 1h block, but a 2-day stay. Window = Mon 8 .. Mon 15.
+    const start = wallToUtcMs(20260607, 9 * 60, tz);
+    const end = wallToUtcMs(20260607, 10 * 60, tz);
+    const from = wallToUtcMs(20260608, 0, tz);
+    const to = wallToUtcMs(20260615, 0, tz);
+    // Block alone does NOT overlap the window...
+    expect(timedOverlapsWindow(start, end, from, to)).toBe(false);
+    // ...but the presence footprint does.
+    const footprint = timedEventEndMs(start, end, 2880);
+    expect(timedOverlapsWindow(start, footprint, from, to)).toBe(true);
   });
 });
 

@@ -77,7 +77,6 @@ export default defineSchema({
     recurrence: v.optional(recurrenceValidator),
   })
     .index("by_user", ["userId"])
-    .index("by_user_start", ["userId", "start"])
     .index("by_user_recurring", ["userId", "recurrence"]),
 
   // Per-occurrence overrides / cancellations for recurring masters.

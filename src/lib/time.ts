@@ -159,6 +159,39 @@ export function eventDaySegment(
   return { topMin, bottomMin, isStart, isEnd };
 }
 
+/**
+ * Whether a timed event's [start, end) interval overlaps the half-open
+ * window [fromMs, toMs). Use overlap — not "start falls inside the window" —
+ * when fetching events to render, so a stay that begins in a prior week and
+ * runs into the visible one is still included (the cross-week case).
+ */
+export function timedOverlapsWindow(
+  start: number,
+  end: number,
+  fromMs: number,
+  toMs: number,
+): boolean {
+  return start < toMs && end > fromMs;
+}
+
+/**
+ * The end of a timed event's *footprint* in UTC ms — the later of its own end
+ * and the end of its presence stay (`stayMinutes` from start). A location event
+ * can have a short block but a multi-day `stayMinutes`, so the where-layer's
+ * presence reaches past the block's end; use this (not the raw end) to decide
+ * whether the event overlaps a visible window.
+ */
+export function timedEventEndMs(
+  start: number,
+  end: number | undefined,
+  stayMinutes: number | undefined,
+): number {
+  const blockEnd = end ?? start;
+  const stayEnd =
+    stayMinutes !== undefined ? start + stayMinutes * 60_000 : blockEnd;
+  return Math.max(blockEnd, stayEnd);
+}
+
 // ---------- Week boundaries (Monday-based) ----------
 
 export interface WeekBounds {
