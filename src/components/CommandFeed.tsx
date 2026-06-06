@@ -8,9 +8,13 @@ import type { Doc } from "@convex/_generated/dataModel";
 /**
  * Chronological feed of agent command turns. Newest at the bottom; auto-scrolls
  * to the latest turn whenever the feed grows or a turn's status changes.
+ *
+ * Rendered "ghost" style: bubbles have no background and float directly over the
+ * calendar. The feed defaults to the agent's context window (FEED_LIMIT turns),
+ * so it shows exactly the turns the model can still see.
  */
 export function CommandFeed() {
-  const turns = useQuery(api.commands.feed, { limit: 30 }) as
+  const turns = useQuery(api.commands.feed, {}) as
     | Doc<"commandLog">[]
     | undefined;
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -28,22 +32,25 @@ export function CommandFeed() {
         <p className="text-sm text-neutral-400">Loading…</p>
       )}
       {turns?.length === 0 && (
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500 [text-shadow:0_1px_2px_rgba(255,255,255,0.8)]">
           No commands yet. Ask the assistant to schedule something.
         </p>
       )}
       {turns?.map((turn) => (
-        <div key={turn._id} className="space-y-1 text-sm">
-          {/* User message */}
+        <div
+          key={turn._id}
+          className="space-y-1 text-sm [text-shadow:0_1px_2px_rgba(255,255,255,0.85)]"
+        >
+          {/* User message — ghost, colour carried by the text. */}
           <div className="flex justify-end">
-            <p className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-indigo-600 px-3 py-2 text-white">
+            <p className="max-w-[85%] whitespace-pre-wrap px-3 py-1.5 text-right font-semibold text-indigo-700">
               {turn.userText}
             </p>
           </div>
 
-          {/* Assistant response / status */}
+          {/* Assistant response / status — ghost. */}
           <div className="flex justify-start">
-            <div className="max-w-[85%] space-y-1.5 rounded-lg bg-neutral-100 px-3 py-2 text-neutral-800">
+            <div className="max-w-[85%] space-y-1.5 px-3 py-1.5 text-neutral-800">
               {turn.status === "running" && (
                 <p className="flex items-center gap-1.5 text-neutral-500">
                   <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-400" />
@@ -63,7 +70,7 @@ export function CommandFeed() {
                   {turn.toolCalls.map((tc: { name: string }, i: number) => (
                     <span
                       key={i}
-                      className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-600"
+                      className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium text-neutral-600 [text-shadow:none]"
                     >
                       {tc.name}
                     </span>
