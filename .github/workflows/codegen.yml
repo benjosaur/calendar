@@ -1,0 +1,100 @@
+name: Codegen (headless Claude Code)
+
+# Fired by Convex's repository_dispatch when a user submits a change request on
+# the website. This runner is the ephemeral "dev box": it clones the repo, lets
+# a headless Claude Code make the change, and commits straight to main — which
+# triggers the Vercel/Convex deploy. No human gate by design; if a change breaks
+# the build, the next request can fix it. The runner is deliberately NOT the
+# thing that serves the app, so it never invalidates its own running code.
+on:
+  repository_dispatch:
+    types: [codegen]
+
+permissions:
+  contents: write
+
+concurrency:
+  # One run per job id; a re-dispatch supersedes an in-flight run.
+  group: codegen-${{ github.event.client_payload.jobId }}
+  cancel-in-progress: true
+
+jobs:
+  codegen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      JOB_ID: ${{ github.event.client_payload.jobId }}
+      PROMPT: ${{ github.event.client_payload.prompt }}
+      CALLBACK_URL: ${{ github.event.client_payload.callbackUrl }}
+      CALLBACK_SECRET: ${{ secrets.CODEGEN_CALLBACK_SECRET }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Small helper used by every step to report status back to Convex.
+      - name: Define callback helper
+        run: |
+          cat > "$RUNNER_TEMP/cb.sh" <<'EOF'
+          #!/usr/bin/env bash
+          # usage: cb '<json body without jobId>'
+          set -euo pipefail
+          body=$(jq -nc --arg jobId "$JOB_ID" --argjson rest "$1" '{jobId:$jobId} + $rest')
+          curl -sS -X POST "$CALLBACK_URL" \
+            -H "Authorization: Bearer $CALLBACK_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "$body" >/dev/null || echo "callback failed (non-fatal)"
+          EOF
+          chmod +x "$RUNNER_TEMP/cb.sh"
+
+      - name: Report running
+        run: |
+          "$RUNNER_TEMP/cb.sh" "$(jq -nc --arg u "$RUN_URL" '{status:"running", runUrl:$u}')"
+
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run headless Claude Code
+        env:
+          # Subscription auth — billed to your Claude Pro/Max plan, no API key.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude -p "$PROMPT" \
+            --output-format json \
+            --dangerously-skip-permissions \
+            --append-system-prompt "You are making a focused change to this repository in response to a user request. Make the minimal edit that satisfies it. Do NOT edit CI workflows, deployment config, or secrets. Do NOT commit or push — just edit files; the workflow handles git. Run 'bun typecheck' before finishing and fix any errors you introduced." \
+            > "$RUNNER_TEMP/result.json"
+          jq -r '.result // ""' "$RUNNER_TEMP/result.json" > "$RUNNER_TEMP/summary.txt"
+
+      - name: Commit to main or report no changes
+        run: |
+          SUMMARY=$(cat "$RUNNER_TEMP/summary.txt")
+          git add -A
+          if git diff --cached --quiet; then
+            "$RUNNER_TEMP/cb.sh" "$(jq -nc --arg s "$SUMMARY" '{status:"no_changes", summary:$s}')"
+            exit 0
+          fi
+
+          git config user.name "codegen-bot"
+          git config user.email "codegen-bot@users.noreply.github.com"
+          git commit -m "codegen: ${PROMPT:0:60}" -m "$SUMMARY" -m "Job: $JOB_ID"
+
+          # Push straight to main. Rebase-and-retry so concurrent jobs that
+          # landed first don't cause a non-fast-forward rejection.
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin HEAD:main && break
+            if [ "$i" = 5 ]; then echo "push failed after 5 retries" >&2; exit 1; fi
+            sleep $((RANDOM % 5 + 1))
+          done
+
+          SHA=$(git rev-parse HEAD)
+          "$RUNNER_TEMP/cb.sh" "$(jq -nc --arg s "$SUMMARY" --arg sha "$SHA" \
+            '{status:"pushed", summary:$s, commitSha:$sha}')"
+
+      - name: Report failure
+        if: failure()
+        run: |
+          "$RUNNER_TEMP/cb.sh" "$(jq -nc --arg e "Run failed; see $RUN_URL" '{status:"error", error:$e}')"
