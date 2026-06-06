@@ -35,6 +35,7 @@ export function DayColumn({
         <EventBlock
           key={occ.occurrenceId}
           occ={occ}
+          civil={civil}
           tz={tz}
           locationsById={locationsById}
         />

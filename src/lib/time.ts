@@ -116,6 +116,49 @@ export function minutesOfDay(utcMs: number, zone: string): number {
   return dt.hour * 60 + dt.minute;
 }
 
+/**
+ * The slice of a timed event that is visible on a single calendar day.
+ *
+ * A timed event can span days (e.g. Fri 14:00 -> Sun 15:00). For each day it
+ * touches it renders a vertical band: the start day from its start minute to
+ * midnight, whole intervening days top-to-bottom, and the end day from midnight
+ * to its end minute. Returns `null` if the event does not overlap `civil`.
+ *
+ * `topMin`/`bottomMin` are minutes from local midnight (0..1440); callers feed
+ * them to `minutesToPct` for layout. `isStart`/`isEnd` mark which edges belong
+ * to this day so the renderer can place resize handles and round corners.
+ *
+ * Edge cases:
+ * - An event ending at exact local midnight belongs to the previous day
+ *   (its bottom edge is 24:00 there), not a zero-height sliver on the next day.
+ * - A zero/negative-duration event falls back to filling to end of day, matching
+ *   the historic single-day behaviour.
+ */
+export function eventDaySegment(
+  start: number,
+  end: number,
+  civil: number,
+  zone: string,
+): { topMin: number; bottomMin: number; isStart: boolean; isEnd: boolean } | null {
+  const startCivil = civilForInstant(start, zone);
+  let endCivil = civilForInstant(end, zone);
+  let endMin = minutesOfDay(end, zone);
+  // An end at exact local midnight is the previous day's 24:00, not 00:00 today.
+  if (endMin === 0 && end > start) {
+    endCivil = civilForInstant(end - 1, zone);
+    endMin = 24 * 60;
+  }
+  if (civil < startCivil || civil > endCivil) return null;
+
+  const isStart = civil === startCivil;
+  const isEnd = civil === endCivil;
+  const topMin = isStart ? minutesOfDay(start, zone) : 0;
+  let bottomMin = isEnd ? endMin : 24 * 60;
+  // Degenerate same-day event with no positive duration: fill to end of day.
+  if (isStart && isEnd && bottomMin <= topMin) bottomMin = 24 * 60;
+  return { topMin, bottomMin, isStart, isEnd };
+}
+
 // ---------- Week boundaries (Monday-based) ----------
 
 export interface WeekBounds {
