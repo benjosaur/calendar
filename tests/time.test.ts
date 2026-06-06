@@ -4,6 +4,7 @@ import {
   toCivil,
   fromCivilParts,
   civilForInstant,
+  eventDaySegment,
   wallToUtcMs,
   minutesOfDay,
   weekBounds,
@@ -71,6 +72,57 @@ describe("snapMinutes", () => {
     expect(snapMinutes(-100)).toBe(DAY_START_MIN); // 07:00
     expect(snapMinutes(60)).toBe(DAY_START_MIN); // 01:00 is before the window
     expect(snapMinutes(99999)).toBe(DAY_END_MIN); // 24:00
+  });
+});
+
+describe("eventDaySegment", () => {
+  const tz = "Europe/London";
+  // A multi-day timed event: Tue 2026-06-02 14:00 -> Thu 2026-06-04 15:00.
+  const start = wallToUtcMs(20260602, 14 * 60, tz);
+  const end = wallToUtcMs(20260604, 15 * 60, tz);
+
+  it("renders the start day from the start minute to midnight", () => {
+    const seg = eventDaySegment(start, end, 20260602, tz);
+    expect(seg).toEqual({ topMin: 14 * 60, bottomMin: 24 * 60, isStart: true, isEnd: false });
+  });
+
+  it("renders an intervening day full height", () => {
+    const seg = eventDaySegment(start, end, 20260603, tz);
+    expect(seg).toEqual({ topMin: 0, bottomMin: 24 * 60, isStart: false, isEnd: false });
+  });
+
+  it("renders the end day from midnight to the end minute", () => {
+    const seg = eventDaySegment(start, end, 20260604, tz);
+    expect(seg).toEqual({ topMin: 0, bottomMin: 15 * 60, isStart: false, isEnd: true });
+  });
+
+  it("returns null for days outside the span", () => {
+    expect(eventDaySegment(start, end, 20260601, tz)).toBeNull();
+    expect(eventDaySegment(start, end, 20260605, tz)).toBeNull();
+  });
+
+  it("treats an end at exact local midnight as the previous day's 24:00", () => {
+    const mEnd = wallToUtcMs(20260603, 0, tz); // Wed 00:00
+    const mStart = wallToUtcMs(20260602, 22 * 60, tz); // Tue 22:00
+    // Tuesday gets the full slice up to 24:00...
+    expect(eventDaySegment(mStart, mEnd, 20260602, tz)).toEqual({
+      topMin: 22 * 60,
+      bottomMin: 24 * 60,
+      isStart: true,
+      isEnd: true,
+    });
+    // ...and Wednesday is untouched (no zero-height sliver).
+    expect(eventDaySegment(mStart, mEnd, 20260603, tz)).toBeNull();
+  });
+
+  it("fills to end of day for a degenerate zero-duration event", () => {
+    const z = wallToUtcMs(20260602, 9 * 60, tz);
+    expect(eventDaySegment(z, z, 20260602, tz)).toEqual({
+      topMin: 9 * 60,
+      bottomMin: 24 * 60,
+      isStart: true,
+      isEnd: true,
+    });
   });
 });
 
