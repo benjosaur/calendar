@@ -10,6 +10,9 @@ import {
   resolveOrCreateLocation,
   listLocationsForUser,
   setHomeForUser,
+  updateLocationForUser,
+  removeLocationForUser,
+  findLocationByName,
 } from "./model/locations";
 
 /** All locations for the current user (LocationLite shape). */
@@ -29,6 +32,30 @@ export const upsert = mutation({
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Not authenticated");
     return await resolveOrCreateLocation(ctx, userId, name, color);
+  },
+});
+
+/** Rename and/or recolour one of the current user's locations. */
+export const update = mutation({
+  args: {
+    locationId: v.id("locations"),
+    name: v.optional(v.string()),
+    color: v.optional(v.string()),
+  },
+  handler: async (ctx, { locationId, name, color }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not authenticated");
+    return await updateLocationForUser(ctx, userId, locationId, { name, color });
+  },
+});
+
+/** Delete one of the current user's locations (not the home place). */
+export const remove = mutation({
+  args: { locationId: v.id("locations") },
+  handler: async (ctx, { locationId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not authenticated");
+    return await removeLocationForUser(ctx, userId, locationId);
   },
 });
 
@@ -67,5 +94,33 @@ export const resolveOrCreate = internalMutation({
   },
   handler: async (ctx, { userId, name, color }) => {
     return await resolveOrCreateLocation(ctx, userId, name, color);
+  },
+});
+
+/** Internal: rename/recolour a place by name for an explicit user (agent action). */
+export const updateByNameInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    name: v.string(),
+    newName: v.optional(v.string()),
+    color: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, name, newName, color }) => {
+    const loc = await findLocationByName(ctx, userId, name);
+    if (!loc) throw new Error(`No place named "${name}".`);
+    return await updateLocationForUser(ctx, userId, loc._id, {
+      name: newName,
+      color,
+    });
+  },
+});
+
+/** Internal: delete a place by name for an explicit user (agent action). */
+export const removeByNameInternal = internalMutation({
+  args: { userId: v.id("users"), name: v.string() },
+  handler: async (ctx, { userId, name }) => {
+    const loc = await findLocationByName(ctx, userId, name);
+    if (!loc) throw new Error(`No place named "${name}".`);
+    return await removeLocationForUser(ctx, userId, loc._id);
   },
 });

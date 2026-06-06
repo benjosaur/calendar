@@ -21,6 +21,22 @@ function timed(civil: number, startMin: number): Occurrence {
   };
 }
 
+function spanning(startCivil: number, startMin: number, endCivil: number, endMin: number): Occurrence {
+  const start = wallToUtcMs(startCivil, startMin, TZ);
+  const end = wallToUtcMs(endCivil, endMin, TZ);
+  return {
+    occurrenceId: `s:${startCivil}:${endCivil}`,
+    eventId: eid("e"),
+    occurrenceDate: startCivil,
+    title: "spanning",
+    allDay: false,
+    start,
+    end,
+    timezone: TZ,
+    isRecurring: false,
+  };
+}
+
 function allDay(startDate: number, endDate: number): Occurrence {
   return {
     occurrenceId: `a:${startDate}:${endDate}`,
@@ -69,5 +85,26 @@ describe("bucketByDay", () => {
     const buckets = bucketByDay([occ], wb.dayCivils, TZ);
     const mon = buckets.find((b) => b.civil === 20260601)!;
     expect(mon.timed).toHaveLength(1);
+  });
+
+  it("buckets a multi-day timed event onto every day it spans", () => {
+    // Tue 14:00 -> Thu 15:00 should appear Tue, Wed and Thu (not Mon/Fri).
+    const occ = spanning(20260602, 14 * 60, 20260604, 15 * 60);
+    const buckets = bucketByDay([occ], wb.dayCivils, TZ);
+    const byCivil = Object.fromEntries(buckets.map((b) => [b.civil, b]));
+    expect(byCivil[20260601].timed).toHaveLength(0); // Monday: before
+    expect(byCivil[20260602].timed).toHaveLength(1); // Tuesday: start
+    expect(byCivil[20260603].timed).toHaveLength(1); // Wednesday: middle
+    expect(byCivil[20260604].timed).toHaveLength(1); // Thursday: end
+    expect(byCivil[20260605].timed).toHaveLength(0); // Friday: after
+  });
+
+  it("does not leak an event ending at local midnight onto the next day", () => {
+    // Tue 22:00 -> Wed 00:00 is wholly Tuesday's; Wednesday stays empty.
+    const occ = spanning(20260602, 22 * 60, 20260603, 0);
+    const buckets = bucketByDay([occ], wb.dayCivils, TZ);
+    const byCivil = Object.fromEntries(buckets.map((b) => [b.civil, b]));
+    expect(byCivil[20260602].timed).toHaveLength(1);
+    expect(byCivil[20260603].timed).toHaveLength(0);
   });
 });

@@ -2,18 +2,28 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query, internalMutation, internalQuery } from "./_generated/server";
 
-/** Chronological (asc) feed of command turns for the current user. */
+/** How many recent turns form the agent's context window — and, to match, how
+ *  many the chat feed shows. One source of truth keeps the UI and the model's
+ *  memory in lockstep. */
+export const FEED_LIMIT = 6;
+
+/** Chronological (asc) feed of the most recent command turns for the current
+ *  user. The default mirrors the agent's context window (recentForUser) so the
+ *  feed shows exactly the turns the model can still "remember". */
 export const feed = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Not authenticated");
 
-    // by_user index orders by creation time asc, which is the desired order.
-    return await ctx.db
+    // by_user index orders by creation time asc. Take the newest `limit` turns
+    // by reading desc, then restore chronological (oldest-first) order.
+    const rows = await ctx.db
       .query("commandLog")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .take(limit ?? 50);
+      .order("desc")
+      .take(limit ?? FEED_LIMIT);
+    return rows.reverse();
   },
 });
 
@@ -25,7 +35,7 @@ export const recentForUser = internalQuery({
       .query("commandLog")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(limit ?? 6);
+      .take(limit ?? FEED_LIMIT);
     // Return chronological (oldest first) for use as message history.
     return rows
       .filter((r) => r.status === "done")

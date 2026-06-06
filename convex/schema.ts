@@ -37,6 +37,7 @@ export default defineSchema({
     // App fields:
     homeLocationId: v.optional(v.id("locations")),
     timezone: v.optional(v.string()), // IANA, e.g. "Europe/London"
+    context: v.optional(v.string()), // free-text note appended to every agent prompt
   }).index("email", ["email"]),
 
   // Named, place-based locations with a colour, per user. Home is a location

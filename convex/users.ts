@@ -27,6 +27,17 @@ export const ensureSetup = mutation({
   },
 });
 
+/** Save the user's free-text context note (appended to every agent prompt). */
+export const setContext = mutation({
+  args: { context: v.string() },
+  handler: async (ctx, { context }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not authenticated");
+    await ctx.db.patch(userId, { context });
+    return null;
+  },
+});
+
 /** Internal: fetch a user by id (for the agent action). */
 export const getById = internalQuery({
   args: { userId: v.id("users") },
