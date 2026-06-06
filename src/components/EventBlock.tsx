@@ -131,7 +131,7 @@ export function EventBlock({
   return (
     <div
       ref={setNodeRef}
-      className={`absolute inset-x-1 z-20 overflow-hidden bg-white/95 text-[11px] shadow-sm ring-1 ring-black/5 ${cornerClass}`}
+      className={`absolute inset-x-1 z-20 overflow-hidden bg-white/95 text-[9px] shadow-sm ring-1 ring-black/5 sm:text-[11px] ${cornerClass}`}
       style={{
         top: `${topPct}%`,
         height: `${heightPct}%`,
@@ -152,11 +152,16 @@ export function EventBlock({
           onPointerDown={(e) => beginResize("top", e)}
         />
       )}
-      <div className="px-1.5 py-0.5">
-        <div className="truncate font-medium text-neutral-800">{occ.title}</div>
-        {/* Show the time range once, on the starting day. */}
+      <div className="px-1 py-0.5 sm:px-1.5">
+        {/* Mobile: wrap the title so as much text as possible shows; on sm+
+            the column is wide enough to truncate to one line. */}
+        <div className="break-words font-medium leading-tight text-neutral-800 sm:truncate">
+          {occ.title}
+        </div>
+        {/* Time range: shown once on the starting day, desktop only — on mobile
+            the blocks are too narrow, so we give the title all the room. */}
         {seg.isStart && (
-          <div className="truncate text-[10px] text-neutral-500">
+          <div className="hidden truncate text-[10px] text-neutral-500 sm:block">
             {fmtTime(start, tz)}–{fmtTime(end, tz)}
           </div>
         )}

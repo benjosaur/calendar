@@ -65,7 +65,7 @@ export function NowIndicator({ nowMs, tz }: { nowMs: number; tz: string }) {
  */
 export function HourGutter() {
   return (
-    <div className="relative h-full w-12 shrink-0 select-none text-right text-[10px] text-neutral-400">
+    <div className="relative h-full w-7 shrink-0 select-none text-right text-[10px] text-neutral-400 sm:w-12">
       {HOURS.map((h) => (
         <div
           key={h}

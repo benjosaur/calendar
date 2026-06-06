@@ -119,7 +119,7 @@ export function WeekGrid({
       <div className="flex h-full flex-col">
         {/* Day header band */}
         <div className="flex shrink-0 border-b border-neutral-200">
-          <div className="w-12 shrink-0" />
+          <div className="w-7 shrink-0 sm:w-12" />
           {buckets.map((b, i) => {
             const isToday = b.civil === todayCivil;
             return (
@@ -146,8 +146,8 @@ export function WeekGrid({
 
         {/* All-day band */}
         <div className="flex shrink-0 border-b border-neutral-200">
-          <div className="w-12 shrink-0 px-1 py-1 text-right text-[9px] uppercase tracking-wide text-neutral-300">
-            all-day
+          <div className="w-7 shrink-0 px-1 py-1 text-right text-[9px] uppercase tracking-wide text-neutral-300 sm:w-12">
+            <span className="hidden sm:inline">all-day</span>
           </div>
           {buckets.map((b) => (
             <div key={b.civil} className="min-w-0 flex-1 border-l border-neutral-200">
