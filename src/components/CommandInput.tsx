@@ -42,7 +42,7 @@ export function CommandInput({
 
   return (
     <form
-      className={`flex items-stretch gap-2 ${expanded ? "p-2.5" : "p-1.5"}`}
+      className={`flex items-stretch gap-2 ${expanded ? "p-2.5" : "px-1.5 py-0"}`}
       onSubmit={(e) => {
         e.preventDefault();
         void submit();
@@ -50,9 +50,10 @@ export function CommandInput({
     >
       <textarea
         aria-label="Command"
-        className={`flex-1 resize-none rounded-md border border-neutral-300 px-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-60 ${
-          // Collapsed: a single tight line. Expanded: a comfortable taller box.
-          expanded ? "min-h-[44px] py-2" : "min-h-0 py-1.5"
+        className={`flex-1 resize-none rounded-md px-3 text-sm outline-none disabled:opacity-60 ${
+          expanded
+            ? "border border-neutral-300 min-h-[44px] py-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            : "border-0 min-h-0 py-2.5 focus:ring-1 focus:ring-indigo-400"
         }`}
         placeholder="Ask Me"
         rows={1}
