@@ -7,8 +7,7 @@ import { api } from "@convex/_generated/api";
 import type { LocationLite } from "@/lib/types";
 import { useVisibleWeek } from "@/hooks/useVisibleWeek";
 import { WeekGrid } from "@/components/WeekGrid";
-import { ChatOverlay } from "@/components/ChatOverlay";
-import { LocationLegend } from "@/components/LocationLegend";
+import { BottomBar } from "@/components/BottomBar";
 
 export default function CalendarPage() {
   const { signOut } = useAuthActions();
@@ -32,14 +31,6 @@ export default function CalendarPage() {
     for (const loc of locations) map[loc._id] = loc;
     return map;
   }, [locations]);
-
-  // Legend shows only places relevant to the visible week (plus Home, the baseline).
-  const legendLocations = useMemo(() => {
-    const used = new Set(
-      occurrences.map((o) => o.locationId).filter(Boolean) as string[],
-    );
-    return locations.filter((l) => l.isHome || used.has(l._id));
-  }, [locations, occurrences]);
 
   return (
     <div className="flex h-full flex-col bg-neutral-50">
@@ -91,7 +82,7 @@ export default function CalendarPage() {
       {/* Body: the calendar fills the whole screen; the chat floats over it. */}
       <div className="relative min-h-0 flex-1">
         <main className="flex h-full min-w-0 flex-col">
-          {/* Calendar grid (fills the height — the whole day fits on screen) */}
+          {/* Calendar grid fills the whole body; the bottom bar floats over it. */}
           <div className="min-h-0 flex-1 overflow-hidden">
             <WeekGrid
               dayCivils={week.dayCivils}
@@ -102,15 +93,10 @@ export default function CalendarPage() {
               tz={tz}
             />
           </div>
-
-          {/* Location legend (hidden on small screens to save space) */}
-          <div className="hidden border-t border-neutral-200 px-3 py-1.5 sm:block">
-            <LocationLegend locations={legendLocations} />
-          </div>
         </main>
 
-        {/* Centred, translucent assistant overlay (expands on focus / while busy). */}
-        <ChatOverlay tz={tz} onNavigate={week.goToMs} />
+        {/* Inline bottom bar: Places · Chat · Context (floats over the calendar). */}
+        <BottomBar tz={tz} onNavigate={week.goToMs} />
       </div>
     </div>
   );
