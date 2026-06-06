@@ -162,15 +162,29 @@ export function WeekGrid({
         {/* Time grid band (fills remaining height) */}
         <div className="flex min-h-0 flex-1">
           <HourGutter />
-          {buckets.map((b) => {
+          {buckets.map((b, idx) => {
             const dayStartMs = wallToUtcMs(b.civil, 0, tz);
             const dayEndMs = wallToUtcMs(b.civil, 24 * 60, tz);
+            // Luxon weekday: 1=Monday .. 7=Sunday; weekdays 1–5 get the default
+            // Westminster rule (9:00–18:00) as a background presence layer.
+            const isWeekday = days[idx].weekday >= 1 && days[idx].weekday <= 5;
+            const defaultIntervals = isWeekday
+              ? [
+                  {
+                    from: wallToUtcMs(b.civil, 9 * 60, tz),
+                    to: wallToUtcMs(b.civil, 18 * 60, tz),
+                    name: "Westminster",
+                    color: "#a855f7",
+                  },
+                ]
+              : undefined;
             const bands = derivePresenceBands({
               locationEvents,
               dayStartMs,
               dayEndMs,
               homeLocationId,
               locationsById,
+              defaultIntervals,
             });
             return (
               <div key={b.civil} className="min-w-0 flex-1">

@@ -15,6 +15,13 @@ interface Interval {
   locationId: Id<"locations"> | null;
 }
 
+export interface DefaultPresenceInterval {
+  from: number; // UTC ms
+  to: number;   // UTC ms
+  name: string;
+  color: string;
+}
+
 export interface PresenceInput {
   /** All location-tagged TIMED occurrences in the visible week (home or not). */
   locationEvents: Occurrence[];
@@ -23,6 +30,12 @@ export interface PresenceInput {
   dayEndMs: number;
   homeLocationId: Id<"locations"> | undefined;
   locationsById: Record<string, LocationLite>;
+  /**
+   * Default presence intervals that apply when no event-based interval covers the
+   * time. Weaker than event bands (travel/location override them) but stronger than
+   * the home baseline. Used for standing rules like "always at Westminster 9–18".
+   */
+  defaultIntervals?: DefaultPresenceInterval[];
 }
 
 /**
@@ -66,8 +79,14 @@ function tripIntervals(
  * stays correctly fill intermediate day columns.
  */
 export function derivePresenceBands(input: PresenceInput): PresenceBand[] {
-  const { locationEvents, dayStartMs, dayEndMs, homeLocationId, locationsById } =
-    input;
+  const {
+    locationEvents,
+    dayStartMs,
+    dayEndMs,
+    homeLocationId,
+    locationsById,
+    defaultIntervals,
+  } = input;
 
   const intervals = locationEvents.flatMap((e) =>
     tripIntervals(e, homeLocationId),
@@ -79,13 +98,19 @@ export function derivePresenceBands(input: PresenceInput): PresenceBand[] {
     if (iv.from > dayStartMs && iv.from < dayEndMs) points.add(iv.from);
     if (iv.to > dayStartMs && iv.to < dayEndMs) points.add(iv.to);
   }
+  for (const d of (defaultIntervals ?? [])) {
+    if (d.from > dayStartMs && d.from < dayEndMs) points.add(d.from);
+    if (d.to > dayStartMs && d.to < dayEndMs) points.add(d.to);
+  }
   const sorted = [...points].sort((a, b) => a - b);
 
   type Seg = {
     from: number;
     to: number;
-    kind: "home" | "location" | "travel";
+    kind: "home" | "location" | "travel" | "default";
     locationId: Id<"locations"> | null;
+    defaultName?: string;
+    defaultColor?: string;
   };
   const raw: Seg[] = [];
 
@@ -109,14 +134,26 @@ export function derivePresenceBands(input: PresenceInput): PresenceBand[] {
 
     if (loc) raw.push({ from, to, kind: "location", locationId: loc.locationId });
     else if (trav) raw.push({ from, to, kind: "travel", locationId: null });
-    else raw.push({ from, to, kind: "home", locationId: homeLocationId ?? null });
+    else {
+      const def = defaultIntervals?.find((d) => mid >= d.from && mid < d.to);
+      if (def) {
+        raw.push({ from, to, kind: "default", locationId: null, defaultName: def.name, defaultColor: def.color });
+      } else {
+        raw.push({ from, to, kind: "home", locationId: homeLocationId ?? null });
+      }
+    }
   }
 
-  // Merge adjacent slices of the same kind + location.
+  // Merge adjacent slices of the same kind + location (+ name for default bands).
   const merged: Seg[] = [];
   for (const seg of raw) {
     const prev = merged[merged.length - 1];
-    if (prev && prev.kind === seg.kind && prev.locationId === seg.locationId) {
+    if (
+      prev &&
+      prev.kind === seg.kind &&
+      prev.locationId === seg.locationId &&
+      prev.defaultName === seg.defaultName
+    ) {
       prev.to = seg.to;
     } else {
       merged.push({ ...seg });
@@ -133,6 +170,16 @@ export function derivePresenceBands(input: PresenceInput): PresenceBand[] {
         kind: "travel",
         color: TRAVEL_COLOR,
         name: "Travelling",
+      };
+    }
+    if (seg.kind === "default") {
+      return {
+        from: seg.from,
+        to: seg.to,
+        locationId: null,
+        kind: "location",
+        color: seg.defaultColor!,
+        name: seg.defaultName!,
       };
     }
     const loc = seg.locationId ? locationsById[seg.locationId] : undefined;
