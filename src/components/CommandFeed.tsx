@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import { useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Doc } from "@convex/_generated/dataModel";
@@ -60,7 +61,9 @@ export function CommandFeed() {
                 </p>
               )}
               {turn.assistantText && (
-                <p className="whitespace-pre-wrap">{turn.assistantText}</p>
+                <div className="prose-chat space-y-1.5">
+                  <ReactMarkdown>{turn.assistantText}</ReactMarkdown>
+                </div>
               )}
               {turn.toolCalls && turn.toolCalls.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-0.5">
