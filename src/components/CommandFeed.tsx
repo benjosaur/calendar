@@ -37,20 +37,17 @@ export function CommandFeed() {
         </p>
       )}
       {turns?.map((turn) => (
-        <div
-          key={turn._id}
-          className="space-y-1 text-sm [text-shadow:0_1px_2px_rgba(255,255,255,0.85)]"
-        >
-          {/* User message — ghost, colour carried by the text. */}
+        <div key={turn._id} className="space-y-1 text-sm">
+          {/* User message — solid bubble. */}
           <div className="flex justify-end">
-            <p className="max-w-[85%] whitespace-pre-wrap px-3 py-1.5 text-right font-semibold text-indigo-700">
+            <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-3 py-1.5 font-medium text-white shadow-sm">
               {turn.userText}
             </p>
           </div>
 
-          {/* Assistant response / status — ghost. */}
+          {/* Assistant response / status — frosted bubble. */}
           <div className="flex justify-start">
-            <div className="max-w-[85%] space-y-1.5 px-3 py-1.5 text-neutral-800">
+            <div className="max-w-[85%] space-y-1.5 rounded-2xl border border-white/60 bg-white/85 px-3 py-1.5 text-neutral-800 shadow-sm ring-1 ring-black/5 backdrop-blur-sm">
               {turn.status === "running" && (
                 <p className="flex items-center gap-1.5 text-neutral-500">
                   <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-400" />
@@ -70,7 +67,7 @@ export function CommandFeed() {
                   {turn.toolCalls.map((tc: { name: string }, i: number) => (
                     <span
                       key={i}
-                      className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium text-neutral-600 [text-shadow:none]"
+                      className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium text-neutral-600"
                     >
                       {tc.name}
                     </span>
