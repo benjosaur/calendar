@@ -23,7 +23,9 @@ export function ChatOverlay({
   const [active, setActive] = useState(false);
 
   // Keep expanded while a turn is in flight (so the reply is visible as it lands).
-  const feed = useQuery(api.commands.feed, { limit: 30 });
+  // No limit arg: the feed defaults to the agent's context window (FEED_LIMIT),
+  // so the chat shows exactly the turns the model can still see.
+  const feed = useQuery(api.commands.feed, {});
   const isRunning = !!feed?.some((t) => t.status === "running");
   const expanded = active || isRunning;
 
@@ -45,14 +47,18 @@ export function ChatOverlay({
         ref={panelRef}
         onMouseDown={() => setActive(true)}
         onFocusCapture={() => setActive(true)}
-        className="pointer-events-auto flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-2xl ring-1 ring-black/5 backdrop-blur-md"
+        className="pointer-events-auto flex w-full max-w-xl flex-col gap-2"
       >
+        {/* Ghost feed: transparent background, messages float over the calendar. */}
         {expanded && (
-          <div className="max-h-[55vh] min-h-0 overflow-y-auto border-b border-white/60">
+          <div className="max-h-[55vh] min-h-0 overflow-y-auto">
             <CommandFeed />
           </div>
         )}
-        <CommandInput tz={tz} onNavigate={onNavigate} />
+        {/* Only the input keeps a frosted frame so it stays legible/usable. */}
+        <div className="overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-2xl ring-1 ring-black/5 backdrop-blur-md">
+          <CommandInput tz={tz} onNavigate={onNavigate} />
+        </div>
       </div>
     </div>
   );

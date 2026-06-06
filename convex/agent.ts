@@ -390,7 +390,7 @@ async function runCommandHandler(
     // Recent completed turns become prior conversation so the model can ask a
     // follow-up question and use the user's next message as the answer.
     const history: { userText: string; assistantText?: string }[] =
-      await ctx.runQuery(internal.commands.recentForUser, { userId, limit: 6 });
+      await ctx.runQuery(internal.commands.recentForUser, { userId });
 
     const messages: Anthropic.MessageParam[] = [];
     for (const turn of history) {
