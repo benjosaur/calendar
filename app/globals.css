@@ -48,3 +48,15 @@ body {
   padding: 0.05rem 0.3rem;
   font-size: 0.85em;
 }
+
+/* Conversation history easing in above the chat input when it expands. */
+@keyframes chat-expand {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scaleY(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
