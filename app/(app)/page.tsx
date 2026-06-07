@@ -6,11 +6,30 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@convex/_generated/api";
 import type { LocationLite } from "@/lib/types";
 import { useVisibleWeek } from "@/hooks/useVisibleWeek";
+import { useTheme } from "@/hooks/useTheme";
 import { WeekGrid } from "@/components/WeekGrid";
 import { BottomBar } from "@/components/BottomBar";
 
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
+
 export default function CalendarPage() {
   const { signOut } = useAuthActions();
+  const { theme, toggle } = useTheme();
   const week = useVisibleWeek();
   const { tz, weekStartMs, weekEndMs } = week;
 
@@ -70,13 +89,23 @@ export default function CalendarPage() {
           {week.label}
         </span>
 
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          className="ml-auto shrink-0 rounded-md border border-neutral-300 px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100 sm:px-3 sm:text-sm"
-        >
-          Sign out
-        </button>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="rounded-md border border-neutral-300 p-1.5 text-neutral-600 hover:bg-neutral-100"
+          >
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </button>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="rounded-md border border-neutral-300 px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100 sm:px-3 sm:text-sm"
+          >
+            Sign out
+          </button>
+        </div>
       </header>
 
       {/* Body: the calendar fills the whole screen; the chat floats over it. */}

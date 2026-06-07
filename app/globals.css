@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+/* Class-based dark variant: adding .dark to <html> activates dark: utilities */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Dark mode: remap the neutral scale and darken the white surface.
+   bg-neutral-50/bg-white become near-black panels; text-neutral-900 becomes
+   near-white — all Tailwind neutral utilities adapt with zero component edits. */
+.dark {
+  color-scheme: dark;
+  --color-neutral-50:  oklch(0.12 0 0);
+  --color-neutral-100: oklch(0.17 0 0);
+  --color-neutral-200: oklch(0.24 0 0);
+  --color-neutral-300: oklch(0.35 0 0);
+  --color-neutral-400: oklch(0.50 0 0);
+  --color-neutral-500: oklch(0.62 0 0);
+  --color-neutral-600: oklch(0.72 0 0);
+  --color-neutral-700: oklch(0.82 0 0);
+  --color-neutral-800: oklch(0.91 0 0);
+  --color-neutral-900: oklch(0.96 0 0);
+  /* bg-white panels (header, cards, frosted glass) become a dark surface */
+  --color-white: oklch(0.17 0 0);
+}
+
+/* text-white is used on coloured buttons/badges — keep it actually white */
+.dark .text-white { color: white; }
+
 /* Base layout: full-height app on a neutral background. */
 html,
 body {
@@ -47,6 +72,12 @@ body {
   background: rgb(0 0 0 / 0.06);
   padding: 0.05rem 0.3rem;
   font-size: 0.85em;
+}
+.dark .prose-chat code {
+  background: rgb(255 255 255 / 0.1);
+}
+.dark .prose-chat a {
+  color: var(--color-indigo-400);
 }
 
 /* Conversation history easing in above the chat input when it expands. */
